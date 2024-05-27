@@ -1,46 +1,27 @@
-#include <Account.h>
-#include <Transaction.h>
-#include <gtest/gtest.h>
+name: Test banking
+run-name: ${{ github.actor }} is running Banking tests
+on: [push]
 
-TEST(Banking, Account) {
-  Account some_bal(0,0);
-  
-  EXPECT_EQ(some_bal.GetBalance(), 0);
-  
-  EXPECT_THROW(some_bal.ChangeBalance(123), std::runtime_error);
-  
-  some_bal.Lock();
-  
-  some_bal.ChangeBalance(123);
-  EXPECT_EQ(some_bal.GetBalance(), 123);
-  
-  EXPECT_THROW(some_bal.Lock(), std::runtime_error);
-}
+jobs: 
+ test:
+  runs-on: ubuntu-latest
+  steps:
+  - uses: actions/checkout@v4
 
-TEST(Banking, Transaction) {
-  int some_money = 5000, some_more_money = 0, fee = 100;
-  
-  Account rich(0,some_money), poor(1,some_more_money);
-  Transaction transaction;
+  - name: Adding gtest
+    run: git clone https://github.com/google/googletest.git ${{github.workspace}}/third-party/gtest -b release-1.12.1
 
-  EXPECT_EQ(transaction.fee(), 1);
+  - name: Install lcov
+    run: sudo apt-get install -y lcov
 
-  transaction.set_fee(fee);
+  - name: Config banking with tests
+    run: cmake -B ${{github.workspace}}/.build -D BUILD_TESTS=ON
 
-  EXPECT_EQ(transaction.fee(), fee);
+  - name: Build banking
+    run: cmake --build ${{github.workspace}}/.build
 
-  EXPECT_THROW(transaction.Make(rich, rich, 1), std::logic_error);
-  EXPECT_THROW(transaction.Make(rich, poor, -1), std::invalid_argument);
-  EXPECT_THROW(transaction.Make(rich, poor, 99), std::logic_error);
+  - name: Run tests
+    run: ${{github.workspace}}/.build/check
 
-  EXPECT_EQ(transaction.Make(rich, poor, 150), false);
-
-  EXPECT_EQ(transaction.Make(rich, poor, 1000), true);
-  EXPECT_EQ(poor.GetBalance(), 1000); 
-  EXPECT_EQ(rich.GetBalance(), 3900);
-
-  EXPECT_EQ(transaction.Make(rich, poor, 3900), false);
-  
-  EXPECT_EQ(poor.GetBalance(), 1000); 
-  EXPECT_EQ(rich.GetBalance(), 3900);
-}
+  - name: Do lcov stuff
+    run: lcov -c -d ${{github.workspace}}/.build/CMakeFiles/banking.dir/banking/ --include *.cpp --output-file ${{github.workspace}}/coverage/lcov.info
