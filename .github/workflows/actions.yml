@@ -1,27 +1,27 @@
-cmake_minimum_required(VERSION 3.25)
+name: Test banking
+run-name: ${{ github.actor }} is running Banking tests
+on: [push]
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+jobs: 
+ test:
+  runs-on: ubuntu-latest
+  steps:
+  - uses: actions/checkout@v4
 
-option(BUILD_TESTS "Build tests" OFF)
+  - name: Adding gtest
+    run: git clone https://github.com/google/googletest.git ${{github.workspace}}/third-party/gtest -b release-1.12.1
 
-if(BUILD_TESTS)                   
-  add_compile_options(--coverage) 
-endif()
+  - name: Install lcov
+    run: sudo apt-get install -y lcov
 
-project (banking)
+  - name: Config banking with tests
+    run: cmake -B ${{github.workspace}}/.build -D BUILD_TESTS=ON
 
-add_library(banking STATIC ${CMAKE_CURRENT_SOURCE_DIR}/banking/Transaction.cpp ${CMAKE_CURRENT_SOURCE_DIR}/banking/Account.cpp)
-target_include_directories(banking PUBLIC
-${CMAKE_CURRENT_SOURCE_DIR}/banking )
+  - name: Build banking
+    run: cmake --build ${{github.workspace}}/.build
 
-target_link_libraries(banking gcov)
+  - name: Run tests
+    run: ${{github.workspace}}/.build/check
 
-if(BUILD_TESTS)
-  enable_testing()
-  add_subdirectory(third-party/gtest)
-  file(GLOB BANKING_TEST_SOURCES tests/*.cpp)
-  add_executable(check ${BANKING_TEST_SOURCES})
-  target_link_libraries(check banking gtest_main)
-  add_test(NAME check COMMAND check)
-endif()
+  - name: Do lcov stuff
+    run: lcov -c -d ${{github.workspace}}/.build/CMakeFiles/banking.dir/banking/ --include *.cpp --output-file ${{github.workspace}}/coverage/lcov.info
